@@ -1,19 +1,20 @@
 ---
-title: 'Copenhagen'
+title: 'Copenhagen, Denmark'
 subtitle: 'ESM 327: Homework #1 - Climate Trends'
-author: "Keene Morrow"
+author: "Data: Danmarks Meteorologiske Institut, 2020\nKeene Morrow"
 date: "4/15/2020"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(include = FALSE, echo = TRUE, warning = FALSE, message = FALSE)
 
 library(tidyverse)
 library(here)
 library(lubridate)
 library(stringr)
 library(broom)
+library(patchwork)
 ```
 
 
@@ -25,7 +26,7 @@ saw in the news, always wanted to go…
 What is it like? Urban/rural, polar/tropical, forest/desert, etc.
 What climate impacts might be important there?
 
-Copenhagen (København) is the capital of Denmark.  Located on the east side of Denmark's largest island, Zealand, Copenhagen is separated from Sweden by the Øresund.  In the author's experience, the city is dominated by paved areas but has numerous parks and easy access to the harbor for recreation.  Topographically, the city, like the rest of Denmark, is remarkably flat.
+Copenhagen (København in Dansih) is the capital of Denmark.  Located on the east side of Denmark's largest island, Zealand, Copenhagen is separated from Sweden by the Øresund.  In the author's experience, the city is dominated by paved areas but has numerous parks and easy access to the harbor for recreation.  Topographically, the city, like the rest of Denmark, is remarkably flat.
 
 As a coastal city, Copenhagen is particularly vulnerable to sea level rise and coastal flooding.  Local fisheries will be impacted by the shift of marine species towards higher latitudes.  Changes in precipitation and the exacerbation of extreme weather may impact agriculture in the area, both positively (increased cereal yields, possibility of wine grape cultivation) and negatively (increased pest activity, impact of heat on livestock). Extreme heat and cold are expected to have significant socioeconomic and health effects. (IPCC 2014)
 
@@ -69,14 +70,6 @@ T_low <- read_csv(here::here("data","dk_daily_122_kbh_lowT.csv")) %>%
 temp <- T_high %>%
   full_join(T_low)
 
-# Monthly Average T
-month_temp <- temp %>%
-  drop_na() %>%
-  group_by(year, month_name, month, temp_type) %>%
-  summarize(mean_temp = mean(temp)) %>%
-  pivot_wider(names_from = temp_type, values_from = mean_temp, names_prefix = "mean_temp_") %>%
-  mutate(mmyy = as.Date(paste(year, month, "01", sep = "-")))
-
 temp_nona <- temp %>%
   drop_na
 
@@ -108,12 +101,20 @@ ggplot() +
              aes(x = date,
                  y = temp),
              alpha = 0.1) +
+    geom_smooth(data = T_high_nona,
+              aes(x = date,
+                 y = temp),
+              color = "dark red",
+              size = 0.2,
+              linetype = "dashed",
+              fill = "red",
+              alpha = 0.3)
   # geom_smooth(method = "lm", color = "blue")
-  geom_abline(intercept = T_high_int,
-              slope = T_high_coef,
-              color = "red")
+  # geom_abline(intercept = T_high_int,
+  #             slope = T_high_coef,
+  #             color = "red")
 
-
+# plot(T_high_lm)
 ```
 
 
@@ -148,7 +149,15 @@ ggplot() +
              aes(x = date,
                  y = precip),
              alpha = 0.3) +
-  geom_smooth(method = "lm", color = "blue")
+    geom_smooth(data = precip_nona,
+              aes(x = date,
+                 y = precip),
+              color = "navy",
+              size = 0.2,
+              linetype = "dashed",
+              fill = "light blue",
+              alpha = 0.5) 
+  # geom_smooth(method = "lm", color = "blue")
   # geom_abline(yintercept = precip_int,
   #             slope = precip_coef,
   #             color = "blue")
@@ -178,19 +187,30 @@ frost <- T_low %>%
   summarize(frost_days = sum(frost_day))
 
 ggplot(data = frost) +
+  geom_smooth(aes(x = year,
+                  y = frost_days),
+              color = "navy",
+              size = 0.2,
+              linetype = "dashed",
+              fill = "blue",
+              alpha = 0.3) +
   geom_col(aes(x = year,
                 y = frost_days),
-           fill = "light blue") +
+           fill = "light blue",
+           alpha = 0.7) +
     labs(y = "# Frost Days",
-         x = "Year",
+         x = "",
          title = "Forst Days per Year",
          subtitle = "Copenhagen, Denmark",
-         caption = "Frost days are days when the low temperature is less than 0°C.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+         caption = "Frost days are days when the low temperature is less than 0°C.\nDashed line shows smoothed trend. Shaded region indicates 95% confidence interval for the trend.\n\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
     theme_minimal() +
-    theme(plot.caption = element_text(hjust = 0, face = "italic"))
+    theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(expand = c(0,0))
+
+ggsave(here::here("figures", "frost_days.png"), width = 7, height = 5)
 
 ```
-
+![](figures/frost_days.png)
 
 #### Wettest Day
 Maxiumum 1-day precipitation
@@ -209,11 +229,14 @@ ggplot(data = wettest) +
          x = "Year",
          title = "Wettest Day of the Year",
          subtitle = "Copenhagen, Denmark",
-         caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+         caption = "\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
     theme_minimal() +
-    theme(plot.caption = element_text(hjust = 0, face = "italic"))
-```
+    theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(expand = c(0,0))
 
+ggsave(here::here("figures", "wettest_day.png"), width = 7, height = 5)
+```
+![](figures/wettest_day.png)
 
 
 #### Season Average Temp (Low & High)
@@ -261,10 +284,14 @@ ggplot(data = season_avg_temp) +
          x = "Year",
          title = "Average Seasonal Temperature",
          subtitle = "Copenhagen, Denmark",
-         caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+         caption = "\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
     theme_minimal() +
-    theme(plot.caption = element_text(hjust = 0, face = "italic"))
+    theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(expand = c(0,0))
+
+ggsave(here::here("figures", "mean_season_temp.png"), width = 7, height = 5)
 ```
+![](figures/mean_season_temp.png)
 
 #### Season Average Precipitation
 ```{r}
@@ -299,14 +326,112 @@ ggplot(data = season_avg_precip) +
   facet_wrap(~ Season) +
   labs(y = "Accumulated Precipitation (mm)",
        x = "Year",
-       title = "Average Seasonal Precipitation",
+       title = "Mean Seasonal Precipitation",
        subtitle = "Copenhagen, Denmark",
-       caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+       caption = "\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
   theme_minimal() +
-  theme(plot.caption = element_text(hjust = 0, face = "italic"))
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(expand = c(0,0))
 
-# ggsave("avg_seasonal_precip_kbh.png")
+ggsave(here::here("figures", "mean_season_precip.png"), width = 7, height = 5)
 ```
+![](figures/mean_season_precip.png)
+
+#### Monthly Temperature
+```{r}
+# Monthly Average T
+month_temp <- temp %>%
+  drop_na() %>%
+  group_by(year, month_name, month, temp_type) %>%
+  summarize(mean_temp = mean(temp)) %>%
+  pivot_wider(names_from = temp_type, values_from = mean_temp, names_prefix = "mean_temp_") %>%
+  mutate(mmyy = as.Date(paste(year, month, "01", sep = "-"))) %>%
+  rename(Year = year)
+
+monthly_high_T <- ggplot(data = month_temp) +
+  geom_line(aes(x = month_name,
+                y = mean_temp_High,
+                group = Year,
+                color = Year),
+            show.legend = FALSE,
+            alpha = 0.5) +
+  scale_colour_gradient(
+    low = "black",
+    high = "red",
+    space = "Lab",
+    na.value = "grey50",
+    guide = "colourbar",
+    aesthetics = "colour"
+  ) +
+  labs(title = "Mean Monthly High Temperature",
+       subtitle = "Copenhagen, Denmark",
+       x = "",
+       y = "Mean Monthly Temperature (°C)",
+       caption = "") +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_discrete(expand = c(0,0))
+
+monthly_low_T <- ggplot(data = month_temp) +
+  geom_line(aes(x = month_name,
+                y = mean_temp_Low,
+                group = Year,
+                color = Year),
+            alpha = 0.5) +
+  scale_colour_gradient(
+    low = "black",
+    high = "red",
+    space = "Lab",
+    na.value = "grey50",
+    guide = "colourbar",
+    aesthetics = "colour"
+  ) +
+  labs(title = "Mean Monthly Low Temperature",
+       subtitle = "",
+       x = "",
+       y = "",
+       caption = "Data: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_discrete(expand = c(0,0))
+
+monthly_high_T + monthly_low_T
+
+ggsave(here::here("figures", "mean_month_temp.png"), width = 7, height = 5)
+```
+![](figures/mean_month_temp.png)
+
+
+#### Monthly Precipitation
+```{r}
+# Monthly Average Precip
+month_precip <- precip %>%
+  drop_na() %>%
+  group_by(year, month_name, month) %>%
+  summarize(mean_precip = mean(precip)) %>%
+  mutate(mmyy = as.Date(paste(year, month, "01", sep = "-"))) %>%
+  rename(Year = year)
+
+ggplot(data = month_precip) +
+  geom_line(aes(x = month_name,
+                y = mean_precip,
+                group = Year,
+                color = Year),
+            alpha = 0.5) +
+  labs(title = "Mean Monthly Precipitation",
+       subtitle = "Copenhagen, Denmark",
+       x = "",
+       y = "Mean Monthly Accumulated Precipitation (mm)",
+       caption = "") +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_discrete(expand = c(0,0))
+
+ggsave(here::here("figures", "mean_month_precip.png"), width = 7, height = 5)
+```
+![](figures/mean_month_precip.png)
+
+
 #### 20th Century Average Deviation
 ##### Temperature
 ```{r}
@@ -330,7 +455,7 @@ decade_temp <- temp %>%
   summarize(mean_decade_temp = mean(temp)) %>%
   mutate(temp_dev = mean_decade_temp - avg_temp_20)
 
-ggplot() +
+temp_dev_1 <-  ggplot() +
   geom_col(data = decade_temp,
            aes(x = decade,
                y = temp_dev),
@@ -348,12 +473,45 @@ ggplot() +
        x = "",
        title = "Temperature Difference from 20th Century Average",
        subtitle = "Copenhagen, Denmark",
-       caption = "Deviation of mean annual temperature shown as black points. Deviation of mean decadal temperature\nshown as red bars.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+       caption = "Deviation of mean annual temperature shown as black points.\nDeviation of mean decadal temperature shown as red bars.") + 
   theme_minimal() +
   theme(plot.caption = element_text(hjust = 0, face = "italic")) +
-  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020))
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020)) +
+  scale_x_continuous(expand = c(0,0))
+
+temp_dev_2 <-  ggplot()  +
+  geom_smooth(data = annual_temp,
+              aes(x = year,
+                  y = temp_dev),
+              color = "dark red",
+              size = 0.2,
+              linetype = "dashed",
+              fill = "red",
+              alpha = 0.3) +
+  geom_hline(yintercept = 0) +
+  geom_line(data = annual_temp,
+            aes(x = year,
+                y = temp_dev)) +
+  geom_point(data = annual_temp,
+             aes(x = year,
+                 y = temp_dev)) +
+  labs(y = "",
+       x = "",
+       title = "",
+       subtitle = "",
+       caption = "Dashed line shows smoothed trend. Shaded region indicates 95% confidence interval for the trend.\n\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020)) +
+  scale_x_continuous(expand = c(0,0))
+
+temp_dev_1 + temp_dev_2
+
+ggsave(here::here("figures", "temp_dev_20.png"), width = 14, height = 5)
 
 ```
+![](figures/temp_dev_20.png)
+
 
 ##### Precipitation
 ```{r}
@@ -377,7 +535,7 @@ decade_precip <- precip %>%
   summarize(mean_decade_precip = mean(precip)) %>%
   mutate(precip_dev = mean_decade_precip - avg_precip_20)
 
-ggplot() +
+precip_dev_1 <- ggplot() +
   geom_col(data = decade_precip,
            aes(x = decade,
                y = precip_dev),
@@ -395,12 +553,45 @@ ggplot() +
        x = "",
        title = "Precipitation Difference from 20th Century Average",
        subtitle = "Copenhagen, Denmark",
-       caption = "Deviation of mean annual precipitation shown as black points. Deviation of mean decadal precipitation\nshown as blue bars.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+       caption = "Deviation of mean annual precipitation shown as black points.\nDeviation of mean decadal precipitation shown as blue bars.\n\n") + 
   theme_minimal() +
   theme(plot.caption = element_text(hjust = 0, face = "italic")) +
-  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020))
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020)) +
+  scale_x_continuous(expand = c(0,0))
+
+precip_dev_2 <- ggplot()  +
+  geom_smooth(data = annual_precip,
+              aes(x = year,
+                  y = precip_dev),
+              color = "navy",
+              size = 0.2,
+              linetype = "dashed",
+              fill = "light blue",
+              alpha = 0.5) +
+  geom_hline(yintercept = 0) +
+  geom_line(data = annual_precip,
+            aes(x = year,
+                y = precip_dev)) +
+  geom_point(data = annual_precip,
+             aes(x = year,
+                 y = precip_dev)) +
+  labs(y = "",
+       x = "",
+       title = "",
+       subtitle = "",
+       caption = "Dashed line shows smoothed trend. Shaded region indicates 95% confidence interval for the trend.\n\nData: Danmarks Meteorologiske Institut, 2020\nKeene Morrow") + 
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020)) +
+  scale_x_continuous(expand = c(0,0))
+
+precip_dev_1 + precip_dev_2
+
+ggsave(here::here("figures", "precip_dev_20.png"), width = 14, height = 5)
 
 ```
+
+![](figures/precip_dev_20.png)
 
 #### References
 
@@ -408,4 +599,4 @@ ggplot() +
 
 IPCC, 2014. "AR5 Climate Change 2014: Impacts, Adaptation, and Vulnerability, Part B: Regional Aspects." https://www.ipcc.ch/report/ar5/wg2/
 
-Cappelen, John. "DMI Report 20-02 Denmark - DMI Historical Climate Data Collection 1768-2019." Danmarks Meteorologiske Institut. https://www.dmi.dk/fileadmin/user_upload/Rapporter/TR/2020/DMIRep20-02.pdf
+Cappelen, John. 2020. "DMI Report 20-02 Denmark - DMI Historical Climate Data Collection 1768-2019." Danmarks Meteorologiske Institut. https://www.dmi.dk/fileadmin/user_upload/Rapporter/TR/2020/DMIRep20-02.pdf
