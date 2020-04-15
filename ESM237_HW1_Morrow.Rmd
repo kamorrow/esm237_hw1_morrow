@@ -1,0 +1,411 @@
+---
+title: 'Copenhagen'
+subtitle: 'ESM 327: Homework #1 - Climate Trends'
+author: "Keene Morrow"
+date: "4/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(here)
+library(lubridate)
+library(stringr)
+library(broom)
+```
+
+
+In this assignment, you will have the opportunity to discover trends in climate at any location
+you like. Think about what types of places might interest you: maybe somewhere you grew up,
+saw in the news, always wanted to go…
+
+1. Describe your chosen location.
+What is it like? Urban/rural, polar/tropical, forest/desert, etc.
+What climate impacts might be important there?
+
+Copenhagen (København) is the capital of Denmark.  Located on the east side of Denmark's largest island, Zealand, Copenhagen is separated from Sweden by the Øresund.  In the author's experience, the city is dominated by paved areas but has numerous parks and easy access to the harbor for recreation.  Topographically, the city, like the rest of Denmark, is remarkably flat.
+
+As a coastal city, Copenhagen is particularly vulnerable to sea level rise and coastal flooding.  Local fisheries will be impacted by the shift of marine species towards higher latitudes.  Changes in precipitation and the exacerbation of extreme weather may impact agriculture in the area, both positively (increased cereal yields, possibility of wine grape cultivation) and negatively (increased pest activity, impact of heat on livestock). Extreme heat and cold are expected to have significant socioeconomic and health effects. (IPCC 2014)
+
+2. Download historical climate data for your site (note: make sure you download both
+precipitation and temperature!)
+You may use any data source you like, either using sources we discussed in class, your favorite data repository, or somewhere else. Make sure you cite your data source in your final report.
+
+3. Assess whether climate at your location has been changing with trend analysis
+- using 2 different metrics for averages
+- using 2 different metrics for extremes
+Refer to your answer for part 1 when choosing your metrics; why are these metrics likely to
+be relevant, given the climate change impacts you expect at this location?
+
+Also be creative in your analysis: use some good old T, rank-sum, or other statistical tests,
+and make sure to plot your results!
+You may work either individually or in groups of 2-3; then summarize the results in a two-page
+report including an introduction, figures/tables, and discussion.
+
+```{r}
+# Daily High Temperature (C)
+T_high <- read_csv(here::here("data","dk_daily_112_kbh_highT.csv")) %>%
+  rename(temp = elem_val) %>%
+  mutate(temp_type = "High") %>% 
+  mutate(date = lubridate::ymd(paste(year, month, day, sep = "-"))) %>% # concatenate dates and make them Date type
+  mutate(month = as.numeric(month)) %>% # prep months for applying names
+  mutate(month_name = month.abb[month]) %>%  # apply names to months
+  mutate(month_name = fct_relevel(month_name, levels = month.abb)) %>% # relevel to get month names in order
+  mutate(temp = as.numeric(temp)) 
+
+# Daily Low Temperature (C)
+T_low <- read_csv(here::here("data","dk_daily_122_kbh_lowT.csv")) %>%
+  rename(temp = elem_val) %>%
+  mutate(temp_type = "Low") %>% 
+  mutate(date = lubridate::ymd(paste(year, month, day, sep = "-"))) %>% # concatenate dates and make them Date type
+  mutate(month = as.numeric(month)) %>% # prep months for applying names
+  mutate(month_name = month.abb[month]) %>%  # apply names to months
+  mutate(month_name = fct_relevel(month_name, levels = month.abb)) %>% # relevel to get month names in order
+  mutate(temp = as.numeric(temp)) 
+
+# Daily T
+temp <- T_high %>%
+  full_join(T_low)
+
+# Monthly Average T
+month_temp <- temp %>%
+  drop_na() %>%
+  group_by(year, month_name, month, temp_type) %>%
+  summarize(mean_temp = mean(temp)) %>%
+  pivot_wider(names_from = temp_type, values_from = mean_temp, names_prefix = "mean_temp_") %>%
+  mutate(mmyy = as.Date(paste(year, month, "01", sep = "-")))
+
+temp_nona <- temp %>%
+  drop_na
+
+T_high_nona <- T_high %>%
+  drop_na
+
+T_low_nona <- T_low %>%
+  drop_na
+```
+
+
+```{r}
+# High linear model
+T_high_lm <- lm(temp ~ year, data = T_high_nona)
+
+summary(T_high_lm)
+
+T_high_lm_tidy <- broom::tidy(T_high_lm)
+T_high_lm_tidy
+
+# Intercept
+T_high_int <- T_high_lm_tidy$estimate[1]
+
+# Coefficient (T_high):
+T_high_coef <- T_high_lm_tidy$estimate[2]
+
+ggplot() +
+  geom_point(data = T_high_nona,
+             aes(x = date,
+                 y = temp),
+             alpha = 0.1) +
+  # geom_smooth(method = "lm", color = "blue")
+  geom_abline(intercept = T_high_int,
+              slope = T_high_coef,
+              color = "red")
+
+
+```
+
+
+```{r}
+# Daily Accumulated Precipitation (mm)
+precip <- read_csv(here::here("data","dk_daily_601_kbh_precip.csv")) %>%
+  rename(precip = elem_val) %>%
+   mutate(date = lubridate::ymd(paste(year, month, day, sep = "-"))) %>% # concatenate dates and make them Date type
+  mutate(month = as.numeric(month)) %>% # prep months for applying names
+  mutate(month_name = month.abb[month]) %>%  # apply names to months
+  mutate(month_name = fct_relevel(month_name, levels = month.abb)) # relevel to get month names in order
+
+precip_nona <- precip %>%
+  drop_na
+
+# linear model
+precip_lm <- lm(precip ~ year, data = precip_nona)
+
+summary(precip_lm)
+
+precip_lm_tidy <- broom::tidy(precip_lm)
+precip_lm_tidy
+
+# Intercept
+precip_int <- precip_lm_tidy$estimate[1]
+
+# Coefficient (precip):
+precip_coef <- precip_lm_tidy$estimate[2]
+
+ggplot() +
+  geom_point(data = precip_nona,
+             aes(x = date,
+                 y = precip),
+             alpha = 0.3) +
+  geom_smooth(method = "lm", color = "blue")
+  # geom_abline(yintercept = precip_int,
+  #             slope = precip_coef,
+  #             color = "blue")
+
+```
+
+Data from the Danish Meterological Institute (Danmarks Meteorologiske Institut) meteorological station at Landbohøjskolen will be used to assess the climate trends from 1861 to 2019.
+
+#### High T
+Temperature changes will impact the agricultural capabilities of the region.
+
+
+
+#### Difference Between Low and High 
+
+
+#### Frost Days
+Frequency of daily minimum temperature <0*C
+
+```{r}
+frost <- T_low %>% 
+  mutate(frost_day = case_when(
+    temp < 0 ~ 1,
+    temp >= 0 ~ 0
+  )) %>% 
+  group_by(year) %>%
+  summarize(frost_days = sum(frost_day))
+
+ggplot(data = frost) +
+  geom_col(aes(x = year,
+                y = frost_days),
+           fill = "light blue") +
+    labs(y = "# Frost Days",
+         x = "Year",
+         title = "Forst Days per Year",
+         subtitle = "Copenhagen, Denmark",
+         caption = "Frost days are days when the low temperature is less than 0°C.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+    theme_minimal() +
+    theme(plot.caption = element_text(hjust = 0, face = "italic"))
+
+```
+
+
+#### Wettest Day
+Maxiumum 1-day precipitation
+```{r}
+wettest <- precip %>%
+  group_by(year) %>%
+  summarize(max_precip = max(precip))
+
+ggplot(data = wettest) +
+  geom_col(aes(x = year,
+                y = max_precip),
+           fill = "blue",
+           # color = "grey50",
+           alpha = 0.75) +
+    labs(y = "Accumulated Precipitation (mm)",
+         x = "Year",
+         title = "Wettest Day of the Year",
+         subtitle = "Copenhagen, Denmark",
+         caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+    theme_minimal() +
+    theme(plot.caption = element_text(hjust = 0, face = "italic"))
+```
+
+
+
+#### Season Average Temp (Low & High)
+```{r}
+season_temp <- temp %>%
+  mutate(Season = case_when(
+    month %in% c(12, 01, 02) ~ "Winter",
+    month %in% c(03, 04, 05) ~ "Spring",
+    month %in% c(06, 07, 08) ~ "Summer",
+    month %in% c(09, 10, 11) ~ "Fall",
+  ),
+  season_num = case_when(
+    month %in% c(09, 10, 11) ~ "3",
+    month %in% c(12, 01, 02) ~ "4",
+    month %in% c(03, 04, 05) ~ "1",
+    month %in% c(06, 07, 08) ~ "2"
+  )) %>% 
+  mutate(order = as.numeric(paste(year, ".", season_num, sep = ""))) %>% 
+  drop_na()
+  # mutate(temp = as.numeric(temp),
+  #        lag_temp = lead(temp, order_by = date),
+  #        lead_temp = lag(temp, order_by = date),
+  #        state = is.na(temp),
+  #        temp2 = case_when(
+  #          is.na(temp) ~ (lag_temp + lead_temp)/2
+  #        )) %>%
+  # mutate(temp = case_when(
+  #   is.na(temp) ~ (lag_temp + lead_temp/2),
+  #   is.numeric(temp) ~ temp)
+  #   )
+
+season_avg_temp <- season_temp %>%
+  group_by(year, Season, temp_type, order) %>%
+  summarize(mean_temp = mean(temp))
+
+season_avg_temp$Season <- factor(season_avg_temp$Season, levels = c("Spring", "Summer", "Fall", "Winter"))
+
+ggplot(data = season_avg_temp) +
+  geom_line(aes(x = order,
+                y = mean_temp,
+                color = Season)) +
+  facet_wrap(~ temp_type) +
+  scale_colour_manual(values = c("green", "red", "dark orange", "blue")) +
+    labs(y = "Temperature (°C)",
+         x = "Year",
+         title = "Average Seasonal Temperature",
+         subtitle = "Copenhagen, Denmark",
+         caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+    theme_minimal() +
+    theme(plot.caption = element_text(hjust = 0, face = "italic"))
+```
+
+#### Season Average Precipitation
+```{r}
+season_precip <- precip %>%
+  mutate(Season = case_when(
+    month %in% c(12, 01, 02) ~ "Winter",
+    month %in% c(03, 04, 05) ~ "Spring",
+    month %in% c(06, 07, 08) ~ "Summer",
+    month %in% c(09, 10, 11) ~ "Fall",
+  ),
+  season_num = case_when(
+    month %in% c(09, 10, 11) ~ "3",
+    month %in% c(12, 01, 02) ~ "4",
+    month %in% c(03, 04, 05) ~ "1",
+    month %in% c(06, 07, 08) ~ "2"
+  )) %>% 
+  mutate(order = as.numeric(paste(year, ".", season_num, sep = ""))) %>% 
+  drop_na()
+
+season_avg_precip <- season_precip %>%
+  group_by(year, Season, precip, order) %>%
+  summarize(mean_precip = mean(precip))
+
+season_avg_precip$Season <- factor(season_avg_precip$Season, levels = c("Spring", "Summer", "Fall", "Winter"))
+
+ggplot(data = season_avg_precip) +
+  geom_point(aes(x = order,
+                y = mean_precip,
+                color = Season),
+             alpha = 0.5) +
+  scale_colour_manual(values = c("green", "red", "dark orange", "blue")) +
+  facet_wrap(~ Season) +
+  labs(y = "Accumulated Precipitation (mm)",
+       x = "Year",
+       title = "Average Seasonal Precipitation",
+       subtitle = "Copenhagen, Denmark",
+       caption = "ESM 237 - Spring 2020\nKeene Morrow") + 
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic"))
+
+# ggsave("avg_seasonal_precip_kbh.png")
+```
+#### 20th Century Average Deviation
+##### Temperature
+```{r}
+temp_20 <- temp %>%
+  filter(year %in% 1900:1999) %>%
+  drop_na()
+
+avg_temp_20 <- mean(temp_20$temp)
+
+annual_temp <- temp %>%
+  drop_na() %>%
+  group_by(year) %>%
+  summarize(mean_annual_temp = mean(temp))%>%
+  mutate(temp_dev = mean_annual_temp - avg_temp_20)
+
+decade_temp <- temp %>%
+  drop_na() %>%
+  mutate(decade = as.numeric(paste(str_sub(as.character(year), start = 1, end = 3), "0", sep = ""))) %>%
+  filter(year > 1879) %>%
+  group_by(decade) %>%
+  summarize(mean_decade_temp = mean(temp)) %>%
+  mutate(temp_dev = mean_decade_temp - avg_temp_20)
+
+ggplot() +
+  geom_col(data = decade_temp,
+           aes(x = decade,
+               y = temp_dev),
+           alpha = 0.4,
+           fill = "red",
+           width = 10) +
+  geom_hline(yintercept = 0) +
+  geom_line(data = annual_temp,
+             aes(x = year,
+                 y = temp_dev)) +
+  geom_point(data = annual_temp,
+             aes(x = year,
+                 y = temp_dev)) +
+  labs(y = "Temperature Deviation (°C)",
+       x = "",
+       title = "Temperature Difference from 20th Century Average",
+       subtitle = "Copenhagen, Denmark",
+       caption = "Deviation of mean annual temperature shown as black points. Deviation of mean decadal temperature\nshown as red bars.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020))
+
+```
+
+##### Precipitation
+```{r}
+precip_20 <- precip %>%
+  filter(year %in% 1900:1999) %>%
+  drop_na()
+
+avg_precip_20 <- mean(precip_20$precip)
+
+annual_precip <- precip %>%
+  drop_na() %>%
+  group_by(year) %>%
+  summarize(mean_annual_precip = mean(precip))%>%
+  mutate(precip_dev = mean_annual_precip - avg_precip_20)
+
+decade_precip <- precip %>%
+  drop_na() %>%
+  mutate(decade = as.numeric(paste(str_sub(as.character(year), start = 1, end = 3), "0", sep = ""))) %>%
+  filter(year > 1879) %>%
+  group_by(decade) %>%
+  summarize(mean_decade_precip = mean(precip)) %>%
+  mutate(precip_dev = mean_decade_precip - avg_precip_20)
+
+ggplot() +
+  geom_col(data = decade_precip,
+           aes(x = decade,
+               y = precip_dev),
+           alpha = 0.4,
+           fill = "blue",
+           width = 10) +
+  geom_hline(yintercept = 0) +
+  geom_line(data = annual_precip,
+             aes(x = year,
+                 y = precip_dev)) +
+  geom_point(data = annual_precip,
+             aes(x = year,
+                 y = precip_dev)) +
+  labs(y = "Precipitation Deviation (mm)",
+       x = "",
+       title = "Precipitation Difference from 20th Century Average",
+       subtitle = "Copenhagen, Denmark",
+       caption = "Deviation of mean annual precipitation shown as black points. Deviation of mean decadal precipitation\nshown as blue bars.\n\nESM 237 - Spring 2020\nKeene Morrow") + 
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0, face = "italic")) +
+  scale_x_continuous(breaks = c(1880, 1900, 1920, 1940, 1960, 1980, 2000, 2020))
+
+```
+
+#### References
+
+***
+
+IPCC, 2014. "AR5 Climate Change 2014: Impacts, Adaptation, and Vulnerability, Part B: Regional Aspects." https://www.ipcc.ch/report/ar5/wg2/
+
+Cappelen, John. "DMI Report 20-02 Denmark - DMI Historical Climate Data Collection 1768-2019." Danmarks Meteorologiske Institut. https://www.dmi.dk/fileadmin/user_upload/Rapporter/TR/2020/DMIRep20-02.pdf
